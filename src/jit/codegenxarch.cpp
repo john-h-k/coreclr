@@ -2053,29 +2053,27 @@ void CodeGen::genMultiRegCallStoreToLocal(GenTree* treeNode)
 
         if (targetReg != reg0 && targetReg != reg1)
         {
-            // Copy reg0 into targetReg and let it to be handled by one
-            // of the cases below.
+            // targetReg = reg0;
+            // targetReg[127:64] = reg1[127:64]
             inst_RV_RV(ins_Copy(TYP_DOUBLE), targetReg, reg0, TYP_DOUBLE);
-            targetReg = reg0;
+            inst_RV_RV_IV(INS_shufpd, EA_16BYTE, targetReg, reg1, 0x00);
         }
-
-        if (targetReg == reg0)
+        else if (targetReg == reg0)
         {
-            // targeReg[63:0] = targetReg[63:0]
+            // (elided) targetReg = reg0
             // targetReg[127:64] = reg1[127:64]
             inst_RV_RV_IV(INS_shufpd, EA_16BYTE, targetReg, reg1, 0x00);
         }
         else
         {
             assert(targetReg == reg1);
-
             // We need two shuffles to achieve this
             // First:
-            // targeReg[63:0] = targetReg[63:0]
+            // targetReg[63:0] = targetReg[63:0]
             // targetReg[127:64] = reg0[63:0]
             //
             // Second:
-            // targeReg[63:0] = targetReg[127:64]
+            // targetReg[63:0] = targetReg[127:64]
             // targetReg[127:64] = targetReg[63:0]
             //
             // Essentially copy low 8-bytes from reg0 to high 8-bytes of targetReg
@@ -2335,11 +2333,12 @@ void CodeGen::genAllocLclFrame(unsigned frameSize, regNumber initReg, bool* pIni
     }
 
     compiler->unwindAllocStack(frameSize);
-
+#ifdef USING_SCOPE_INFO
     if (!doubleAlignOrFramePointerUsed())
     {
         psiAdjustStackLevel(frameSize);
     }
+#endif // USING_SCOPE_INFO
 }
 
 //------------------------------------------------------------------------
@@ -4842,6 +4841,11 @@ void CodeGen::genRegCopy(GenTree* treeNode)
 
                     genUpdateVarReg(varDsc, treeNode);
 
+#ifdef USING_VARIABLE_LIVE_RANGE
+                    // Report the home change for this variable
+                    compiler->getVariableLiveKeeper()->siUpdateVariableLiveRange(varDsc, lcl->gtLclNum);
+#endif // USING_VARIABLE_LIVE_RANGE
+
                     // The new location is going live
                     genUpdateRegLife(varDsc, /*isBorn*/ true, /*isDying*/ false DEBUGARG(treeNode));
                 }
@@ -6854,7 +6858,7 @@ void CodeGen::genCkfinite(GenTree* treeNode)
 }
 
 #ifdef _TARGET_AMD64_
-int CodeGenInterface::genSPtoFPdelta()
+int CodeGenInterface::genSPtoFPdelta() const
 {
     int delta;
 
@@ -6906,7 +6910,7 @@ int CodeGenInterface::genSPtoFPdelta()
 //    Total frame size
 //
 
-int CodeGenInterface::genTotalFrameSize()
+int CodeGenInterface::genTotalFrameSize() const
 {
     assert(!IsUninitialized(compiler->compCalleeRegsPushed));
 
@@ -6927,7 +6931,7 @@ int CodeGenInterface::genTotalFrameSize()
 // is based on a maximum delta from Initial-SP, so first we find SP, then
 // compute the FP offset.
 
-int CodeGenInterface::genCallerSPtoFPdelta()
+int CodeGenInterface::genCallerSPtoFPdelta() const
 {
     assert(isFramePointerUsed());
     int callerSPtoFPdelta;
@@ -6943,7 +6947,7 @@ int CodeGenInterface::genCallerSPtoFPdelta()
 //
 // This number will be negative.
 
-int CodeGenInterface::genCallerSPtoInitialSPdelta()
+int CodeGenInterface::genCallerSPtoInitialSPdelta() const
 {
     int callerSPtoSPdelta = 0;
 

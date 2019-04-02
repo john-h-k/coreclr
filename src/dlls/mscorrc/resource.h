@@ -88,7 +88,6 @@
 #define IDS_DS_DSOTHREADMODEL                   0x1707
 
 #define IDS_EE_NDIRECT_UNSUPPORTED_SIG          0x1708
-#define IDS_EE_EXCEPTION_FROM_HRESULT           0x1709
 #define IDS_EE_NDIRECT_BADNATL                  0x170a
 #define IDS_EE_NDIRECT_LOADLIB_WIN              0x170b
 #define IDS_EE_NDIRECT_GETPROCADDRESS_WIN       0x170c
@@ -531,6 +530,7 @@
 #define BFA_BAD_CLASS_INT_CA_FORMAT             0x2048
 #define BFA_BAD_COMPLUS_SIG                     0x2049
 #define BFA_BAD_ELEM_IN_SIZEOF                  0x204b
+#define BFA_IJW_IN_COLLECTIBLE_ALC              0x204c
 
 #define IDS_CLASSLOAD_INTERFACE_NO_ACCESS       0x204f
 
@@ -719,3 +719,5 @@
 #define IDS_EE_NDIRECT_GETPROCADDR_WIN_DLL         0x2644
 #define IDS_EE_NDIRECT_GETPROCADDR_UNIX_SO         0x2645
 #define IDS_EE_BADMARSHAL_STRING_OUT               0x2646
+#define IDS_EE_BADMARSHAL_COPYCTORRESTRICTION      0x2647
+#define IDS_EE_BADMARSHAL_WINRT_COPYCTOR           0x2648
