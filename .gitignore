@@ -324,4 +324,3 @@ linker
 /artifacts/toolset
 /.packages
 /.dotnet
-*.code-workspace
