@@ -7545,6 +7545,61 @@ bool getILIntrinsicImplementationForRuntimeHelpers(MethodDesc * ftn,
         return true;
     }
 
+#define MAX(_A, _B) ((_A > _B) ? _B : _B)
+    if (tk == MscorlibBinder::GetMethod(METHOD__RUNTIME_HELPERS__GET_ALIGNMENT)->GetMemberDef())
+    {
+        _ASSERTE(ftn->HasMethodInstantiation());
+        Instantiation inst = ftn->GetMethodInstantiation();
+
+        _ASSERTE(ftn->GetNumGenericMethodArgs() == 1);
+        TypeHandle typeHandle = inst[0];
+        MethodTable * methodTable = typeHandle.GetMethodTable();
+        EEClassLayoutInfo * layoutInfo = methodTable->GetLayoutInfo();
+
+        __int32 alignment = MAX(layoutInfo->m_LargestAlignmentRequirementOfAllMembers, layoutInfo->m_ManagedLargestAlignmentRequirementOfAllMembers);
+
+        // vm/class.h says it may only be 1, 2, 4 or 8
+        _ASSERTE(alignment == 1 || alignment == 2 || alignment == 4 || alignment == 8);
+
+        static const BYTE returns[][4] =
+         { 
+            { CEE_LDC_I4_1, CEE_RET },
+            { CEE_LDC_I4_2, CEE_RET },
+            { CEE_LDC_I4_4, CEE_RET },
+            { CEE_LDC_I4_8, CEE_RET }
+        };
+
+        static const size_t size = sizeof(returns) / 4;
+
+
+        switch (alignment)
+        {
+            case 1:
+                methInfo->ILCode = const_cast<BYTE*>(returns[0]);
+                break;
+
+            case 2:
+                methInfo->ILCode = const_cast<BYTE*>(returns[1]);
+                break;
+
+            case 4:
+                methInfo->ILCode = const_cast<BYTE*>(returns[2]);
+                break;
+
+            case 8:
+                methInfo->ILCode = const_cast<BYTE*>(returns[3]);
+                break;
+
+        }
+
+        methInfo->ILCodeSize = size;
+        methInfo->maxStack = 1;
+        methInfo->EHcount = 0;
+        methInfo->options = (CorInfoOptions)0;
+        return true;
+    }
+#undef MAX
+
     return false;
 }
 

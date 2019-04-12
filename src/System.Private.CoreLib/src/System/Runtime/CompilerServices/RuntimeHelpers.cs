@@ -151,6 +151,14 @@ namespace System.Runtime.CompilerServices
             throw new InvalidOperationException();
         }
 
+        /// <returns>The minimum alignment of the type compatible with both managed and unmanaged code</returns>
+        public static int GetAlignment<T>()
+        {
+            // The body of this function will be replaced by the EE with unsafe code!!!
+            // See getILIntrinsicImplementationForRuntimeHelpers for how this happens.
+            throw new InvalidOperationException();
+        }
+
         /// <returns>true if given type is bitwise equatable (memcmp can be used for equality checking)</returns>
         /// <remarks>
         /// Only use the result of this for Equals() comparison, not for CompareTo() comparison.
