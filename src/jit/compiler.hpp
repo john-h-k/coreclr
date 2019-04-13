@@ -1212,13 +1212,6 @@ inline GenTree* Compiler::gtNewIndexRef(var_types typ, GenTree* arrayOp, GenTree
 {
     GenTreeIndex* gtIndx = new (this, GT_INDEX) GenTreeIndex(typ, arrayOp, indexOp, genTypeSize(typ));
 
-    assert(!(gtIndx->gtFlags & GTF_INX_RNGCHK));
-
-    if (rngChkRequired)
-    {
-        gtIndx->gtFlags |= GTF_INX_RNGCHK;
-    }
-
     return gtIndx;
 }
 

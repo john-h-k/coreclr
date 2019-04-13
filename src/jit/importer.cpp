@@ -7015,17 +7015,17 @@ enum
 // For prefixFlags
 enum
 {
-    PREFIX_TAILCALL_EXPLICIT = 0x00000001, // call has "tail" IL prefix
-    PREFIX_TAILCALL_IMPLICIT = 0x00000010, // call is treated as having "tail" prefix even though there is no "tail" IL
+    PREFIX_TAILCALL_EXPLICIT = 0x01, // call has "tail" IL prefix
+    PREFIX_TAILCALL_IMPLICIT = 0x02, // call is treated as having "tail" prefix even though there is no "tail" IL
                                            // prefix
     PREFIX_TAILCALL    = (PREFIX_TAILCALL_EXPLICIT | PREFIX_TAILCALL_IMPLICIT),
-    PREFIX_VOLATILE    = 0x00000100,
-    PREFIX_UNALIGNED   = 0x00001000,
-    PREFIX_CONSTRAINED = 0x00010000,
-    PREFIX_READONLY    = 0x00100000,
-    PREFIX_NO_TYPECHK  = 0x01000000,
-    PREFIX_NO_RANGECHK = 0x10000000,
-    PREFIX_NO_NULLCHK  = 0x00000002, // irregular value, an issue?
+    PREFIX_VOLATILE    = 0x04,
+    PREFIX_UNALIGNED   = 0x08,
+    PREFIX_CONSTRAINED = 0x10,
+    PREFIX_READONLY    = 0x20,
+    PREFIX_NO_TYPECHK  = 0x40,
+    PREFIX_NO_RANGECHK = 0x80,
+    PREFIX_NO_NULLCHK  = 0x100,
     PREFIX_NO_ANY      = PREFIX_NO_TYPECHK | PREFIX_NO_RANGECHK | PREFIX_NO_NULLCHK
 
 };
@@ -9954,7 +9954,7 @@ static void impValidateMemoryAccessOpcode(const BYTE* codeAddr, const BYTE* code
 /*****************************************************************************/
 // Checks whether the opcode is a valid opcode for the no. prefixe
 
-static void impValidateCheckOmittionOpcode(const BYTE* codeAddr, const BYTE* codeEndp, int omittionValues)
+static void impValidateCheckomissionOpcode(const BYTE* codeAddr, const BYTE* codeEndp, int omissionValues)
 {
     OPCODE opcode = impGetNonPrefixOpcode(codeAddr, codeEndp);
 
@@ -9967,31 +9967,31 @@ static void impValidateCheckOmittionOpcode(const BYTE* codeAddr, const BYTE* cod
     if (opcode == CEE_LDELEMA || (opcode >= CEE_STELEM_I && opcode <= CEE_STELEM_REF))
         return;
 
+
     // these could be chained but it would be entirely unreadable
+    // Each check checks if a bit in the flags is set, and if so, ensures the following opcode is valid.
+    // Because multiple bits can be set, you cannot short circuit validity once you have asserted the opcode
+    // is valid for that prefix
 
-    // check that each bit is either not set or the correct opcodes for each possible value (0x01, 0x02, 0x04)
-    if (!(
-        
-        // 0x01: typecheck (castclass, unbox, ldelema, stelem, stelem)
-        (!(omittionValues & NO_PREFIX_TYPECHECK)
-        || (opcode == CEE_CASTCLASS || opcode == CEE_UNBOX || opcode == CEE_STELEM))
-
-        &&
-
-        // 0x02: rangecheck (ldelem.*, ldelema, stelem.*)
-        (!(omittionValues & NO_PREFIX_RANGECHECK
-        || (opcode >= CEE_LDELEM_I1 && opcode <= CEE_LDELEM_REF)))
-
-        &&
-
-        // 0x04: nullcheck (ldfld, stfld, callvirt, ldvirtftn, ldelem.*, stelem.*, ldelema)
-        (!(omittionValues & NO_PREFIX_NULLCHECK
-        || opcode == CEE_LDFLD || opcode == CEE_STFLD || opcode == CEE_CALLVIRT || opcode == CEE_LDVIRTFTN
-        || (opcode >= CEE_LDELEM_I1 && opcode <= CEE_LDELEM_REF)))
-        
-        ))
+    // 0x01: typecheck (castclass, unbox, ldelema, stelem, stelem.*)
+    if ((omissionValues & NO_PREFIX_TYPECHECK)
+        && !(opcode == CEE_CASTCLASS || opcode == CEE_UNBOX || opcode == CEE_STELEM))
     {
-        BADCODE("Invalid opcode for no. prefix");
+        BADCODE("Invalid opcode for no. typecheck (0x01) prefix");
+    }
+    // 0x02: rangecheck (ldelem.*, ldelema, stelem.*) - already checked for ldelema and stelem.*
+    if ((omissionValues & NO_PREFIX_RANGECHECK)
+        && !(opcode >= CEE_LDELEM_I1 && opcode <= CEE_LDELEM_REF)) // ldelem.* are all in a consecutive band of values, so easiest to check if in that range
+    {
+        BADCODE("Invalid opcode for no. rangecheck (0x02) prefix");
+    }
+    
+    // 0x04: nullcheck (ldfld, stfld, callvirt, ldvirtftn, ldelem.*, stelem.*, ldelema)
+    if ((omissionValues & NO_PREFIX_NULLCHECK)
+        && !(opcode == CEE_LDFLD || opcode == CEE_STFLD || opcode == CEE_CALLVIRT || opcode == CEE_LDVIRTFTN
+            || (opcode >= CEE_LDELEM_I1 && opcode <= CEE_LDELEM_REF)))
+    {
+        BADCODE("Invalid opcode for no. nullcheck (0x04) prefix");
     }
 }
 
@@ -11675,7 +11675,7 @@ void Compiler::impImportBlockCode(BasicBlock* block)
 
                 /* Create the index node and push it on the stack */
 
-                op1 = gtNewIndexRef(lclTyp, op3, op1, prefixFlags & PREFIX_NO_RANGECHK);
+                op1 = gtNewIndexRef(lclTyp, op1, op2, prefixFlags & PREFIX_NO_RANGECHK);
 
                 ldstruct = (opcode == CEE_LDELEM && lclTyp == TYP_STRUCT);
 
@@ -13268,7 +13268,7 @@ void Compiler::impImportBlockCode(BasicBlock* block)
                                                    // nullcheck (0x04) - can be OR'ed together as flags
                 ++codeAddr;
 
-                // should zero be allowed to indicate no checks omitted? (in this impl it is)
+                // should zero be allowed to indicate no checks omissed? (in this impl it is)
                 // should we enforce only relevant bits set? (in this impl it is not - 0b_1111_1111 is valid)
 
                 Verify(!(prefixFlags & PREFIX_NO_ANY), "Multiple no. prefixes with equal values");
@@ -13286,7 +13286,7 @@ void Compiler::impImportBlockCode(BasicBlock* block)
                     prefixFlags |= PREFIX_NO_NULLCHK;
                 }
 
-                impValidateCheckOmittionOpcode(codeAddr, codeEndp, val);
+                impValidateCheckomissionOpcode(codeAddr, codeEndp, val);
 
                 assert(sz == 1);
 
